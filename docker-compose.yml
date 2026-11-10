@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    # Node direto (sem npm) para os sinais de parada chegarem ao processo
+    command: ['node', '--watch', 'src/server.js']
+    init: true
+    restart: unless-stopped
+    ports:
+      - '${BACKEND_PORT:-3000}:${BACKEND_PORT:-3000}'
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:${BACKEND_PORT:-3000}/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    init: true
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}'
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
