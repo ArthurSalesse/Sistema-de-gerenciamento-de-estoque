@@ -23,6 +23,7 @@
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "knex": "^3.3.0",
+    "multer": "^2.5.0",
     "pg": "^8.23.1"
   },
   "devDependencies": {

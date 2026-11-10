@@ -9,6 +9,8 @@ Monorepo com **backend** em Node.js (Express), **frontend** em React (Vite) e ba
 │   ├── src/
 │   │   ├── app.js      # Criação do app e rotas
 │   │   ├── server.js   # Inicialização do servidor
+│   │   ├── storage/    # Serviço de armazenamento de imagens
+│   │   ├── middlewares/
 │   │   └── database/
 │   │       ├── connection.js
 │   │       ├── migrations/
@@ -117,6 +119,42 @@ vendas    id, roupa_id → roupas, usuario_id → usuarios, quantidade (> 0),
 - As chaves estrangeiras usam `ON DELETE RESTRICT`. Para "excluir" uma roupa preencha
   `excluido_em` (soft delete), assim as vendas antigas continuam válidas.
 
+### Imagens das roupas
+
+As imagens passam pelo serviço em `backend/src/storage/`, que tem só duas operações:
+
+```js
+import { storage } from './storage/index.js';
+
+const { url } = await storage.save(req.imagem); // salva e devolve a URL pública
+await storage.remove(url); // apaga (aceita URL ou key; não falha se já não existir)
+```
+
+- **Validação** (`middlewares/upload-imagem.js`): aceita só JPG, PNG e WEBP, identificados
+  pelos bytes do arquivo (não pela extensão), com no máximo 5 MB. Fora disso a API responde
+  `415` ou `413` com `{ "erro": "<mensagem>" }`.
+- **Nome do arquivo:** sempre um UUID gerado no servidor (`<uuid>.png`), nunca o nome original.
+- **Acesso:** com o driver local, os arquivos ficam em `backend/uploads/` (fora do git) e são
+  servidos em `http://localhost:3000/uploads/<arquivo>`.
+- **Remoção:** use `storage.remove(url)` ao trocar a imagem de uma roupa e quando um cadastro
+  falhar depois de a imagem já ter sido salva.
+- **Trocar para nuvem:** crie um driver (ex.: `storage/s3-storage.js`) com `save` e `remove`,
+  registre-o em `storage/index.js` e mude `STORAGE_DRIVER`. O resto do código não muda.
+
+Uso numa rota (formulário `multipart/form-data` com o campo `imagem`):
+
+```js
+router.post('/roupas', uploadImagem('imagem'), async (req, res) => {
+  const imagem = req.imagem && (await storage.save(req.imagem));
+  try {
+    // ... insere a roupa com imagem_url: imagem?.url
+  } catch (erro) {
+    await storage.remove(imagem?.url); // não deixa arquivo órfão
+    throw erro;
+  }
+});
+```
+
 ### Usuário de teste (seed)
 
 | E-mail              | Senha      |
@@ -147,19 +185,21 @@ tabelas antes de inserir, então use só em desenvolvimento.
 
 Todas ficam no `.env` da raiz (veja `.env.example`):
 
-| Variável            | Padrão                  | Descrição                                |
-| ------------------- | ----------------------- | ---------------------------------------- |
-| `NODE_ENV`          | `development`           | Ambiente de execução                     |
-| `BACKEND_PORT`      | `3000`                  | Porta da API                             |
-| `CORS_ORIGIN`       | `http://localhost:5173` | Origem autorizada a chamar a API         |
-| `UPLOAD_DIR`        | `uploads`               | Pasta local para arquivos enviados       |
-| `POSTGRES_USER`     | `estoque`               | Usuário do banco                         |
-| `POSTGRES_PASSWORD` | `estoque_dev`           | Senha do banco (só para desenvolvimento) |
-| `POSTGRES_DB`       | `estoque`               | Nome do banco                            |
-| `DB_HOST`           | `localhost`             | Host do banco (no Docker vira `db`)      |
-| `DB_PORT`           | `5432`                  | Porta do banco                           |
-| `FRONTEND_PORT`     | `5173`                  | Porta do frontend                        |
-| `VITE_API_URL`      | `http://localhost:3000` | URL da API usada pelo navegador          |
+| Variável            | Padrão                  | Descrição                                      |
+| ------------------- | ----------------------- | ---------------------------------------------- |
+| `NODE_ENV`          | `development`           | Ambiente de execução                           |
+| `BACKEND_PORT`      | `3000`                  | Porta da API                                   |
+| `CORS_ORIGIN`       | `http://localhost:5173` | Origem autorizada a chamar a API               |
+| `API_PUBLIC_URL`    | `http://localhost:3000` | URL pública da API (base das URLs das imagens) |
+| `STORAGE_DRIVER`    | `local`                 | Onde guardar as imagens                        |
+| `UPLOAD_DIR`        | `uploads`               | Pasta das imagens (driver `local`)             |
+| `POSTGRES_USER`     | `estoque`               | Usuário do banco                               |
+| `POSTGRES_PASSWORD` | `estoque_dev`           | Senha do banco (só para desenvolvimento)       |
+| `POSTGRES_DB`       | `estoque`               | Nome do banco                                  |
+| `DB_HOST`           | `localhost`             | Host do banco (no Docker vira `db`)            |
+| `DB_PORT`           | `5432`                  | Porta do banco                                 |
+| `FRONTEND_PORT`     | `5173`                  | Porta do frontend                              |
+| `VITE_API_URL`      | `http://localhost:3000` | URL da API usada pelo navegador                |
 
 > Variáveis lidas pelo frontend precisam começar com `VITE_` e ficam visíveis no navegador —
 > nunca coloque segredos nelas.
