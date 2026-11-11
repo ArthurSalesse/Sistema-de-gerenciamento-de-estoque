@@ -48,3 +48,18 @@ export function validarCadastro(body) {
   // A senha não é alterada (nem trim): espaços fazem parte dela
   return { dados: { nome: nome.trim(), email: normalizarEmail(email), senha } };
 }
+
+/**
+ * Valida o corpo do login. Só confere presença e tipo: regras de formato e tamanho
+ * não se aplicam aqui, para não dar pistas sobre quais contas existem.
+ */
+export function validarLogin(body) {
+  const { email, senha } = body ?? {};
+  const erros = {};
+
+  if (typeof email !== 'string' || !email.trim()) erros.email = 'O e-mail é obrigatório.';
+  if (typeof senha !== 'string' || !senha) erros.senha = 'A senha é obrigatória.';
+
+  if (Object.keys(erros).length) return { erros };
+  return { dados: { email: normalizarEmail(email), senha } };
+}

@@ -43,7 +43,12 @@ cd Sistema-de-gerenciamento-de-estoque
 cp .env.example .env
 ```
 
-Os valores padrão do `.env.example` já funcionam para desenvolvimento local.
+Os valores padrão do `.env.example` funcionam para desenvolvimento local, exceto o
+`JWT_SECRET`, que deve ser trocado por um valor aleatório (o backend não sobe sem ele):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+```
 
 ### 2a. Rodar com Docker (recomendado)
 
@@ -190,6 +195,33 @@ Cria a conta de um lojista.
 | `400`  | Validação falhou. Ex.: `{ "erro": "Dados inválidos.", "campos": { "email": "Informe um e-mail válido." } }` |
 | `409`  | E-mail já cadastrado (a comparação ignora maiúsculas e espaços)                                             |
 
+### `POST /auth/login`
+
+Autentica o lojista e devolve um token JWT.
+
+```json
+{ "email": "maria@loja.com", "senha": "********" }
+```
+
+Resposta `200`:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "usuario": { "id": 1, "nome": "Maria", "email": "maria@loja.com" }
+}
+```
+
+| Status | Quando                                                                                             |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| `200`  | Credenciais corretas                                                                               |
+| `400`  | E-mail ou senha não enviados (com `campos`)                                                        |
+| `401`  | `{ "erro": "E-mail ou senha inválidos." }`, tanto para e-mail inexistente quanto para senha errada |
+
+O token é assinado (HS256) com `JWT_SECRET`, traz o id do usuário em `sub` e expira em
+`JWT_EXPIRES_IN` (padrão `8h`). Envie-o nas próximas requisições no cabeçalho
+`Authorization: Bearer <token>`.
+
 ## Testes
 
 Os testes de rotas que usam o banco rodam num banco separado, `<POSTGRES_DB>_test`, criado e
@@ -222,21 +254,23 @@ npm test
 
 Todas ficam no `.env` da raiz (veja `.env.example`):
 
-| Variável            | Padrão                  | Descrição                                      |
-| ------------------- | ----------------------- | ---------------------------------------------- |
-| `NODE_ENV`          | `development`           | Ambiente de execução                           |
-| `BACKEND_PORT`      | `3000`                  | Porta da API                                   |
-| `CORS_ORIGIN`       | `http://localhost:5173` | Origem autorizada a chamar a API               |
-| `API_PUBLIC_URL`    | `http://localhost:3000` | URL pública da API (base das URLs das imagens) |
-| `STORAGE_DRIVER`    | `local`                 | Onde guardar as imagens                        |
-| `UPLOAD_DIR`        | `uploads`               | Pasta das imagens (driver `local`)             |
-| `POSTGRES_USER`     | `estoque`               | Usuário do banco                               |
-| `POSTGRES_PASSWORD` | `estoque_dev`           | Senha do banco (só para desenvolvimento)       |
-| `POSTGRES_DB`       | `estoque`               | Nome do banco                                  |
-| `DB_HOST`           | `localhost`             | Host do banco (no Docker vira `db`)            |
-| `DB_PORT`           | `5432`                  | Porta do banco                                 |
-| `FRONTEND_PORT`     | `5173`                  | Porta do frontend                              |
-| `VITE_API_URL`      | `http://localhost:3000` | URL da API usada pelo navegador                |
+| Variável            | Padrão                  | Descrição                                                        |
+| ------------------- | ----------------------- | ---------------------------------------------------------------- |
+| `NODE_ENV`          | `development`           | Ambiente de execução                                             |
+| `BACKEND_PORT`      | `3000`                  | Porta da API                                                     |
+| `CORS_ORIGIN`       | `http://localhost:5173` | Origem autorizada a chamar a API                                 |
+| `API_PUBLIC_URL`    | `http://localhost:3000` | URL pública da API (base das URLs das imagens)                   |
+| `STORAGE_DRIVER`    | `local`                 | Onde guardar as imagens                                          |
+| `UPLOAD_DIR`        | `uploads`               | Pasta das imagens (driver `local`)                               |
+| `JWT_SECRET`        | —                       | Segredo que assina os tokens (mínimo 32 caracteres; obrigatório) |
+| `JWT_EXPIRES_IN`    | `8h`                    | Validade do token                                                |
+| `POSTGRES_USER`     | `estoque`               | Usuário do banco                                                 |
+| `POSTGRES_PASSWORD` | `estoque_dev`           | Senha do banco (só para desenvolvimento)                         |
+| `POSTGRES_DB`       | `estoque`               | Nome do banco                                                    |
+| `DB_HOST`           | `localhost`             | Host do banco (no Docker vira `db`)                              |
+| `DB_PORT`           | `5432`                  | Porta do banco                                                   |
+| `FRONTEND_PORT`     | `5173`                  | Porta do frontend                                                |
+| `VITE_API_URL`      | `http://localhost:3000` | URL da API usada pelo navegador                                  |
 
 > Variáveis lidas pelo frontend precisam começar com `VITE_` e ficam visíveis no navegador —
 > nunca coloque segredos nelas.
