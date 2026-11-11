@@ -165,13 +165,50 @@ O seed cria esse usuário, 5 roupas (uma delas sem estoque) e 15 vendas espalhad
 ~3 meses, com datas relativas ao dia em que o seed roda. Ele **apaga todos os dados** das três
 tabelas antes de inserir, então use só em desenvolvimento.
 
+## API
+
+Erros sempre seguem o formato `{ "erro": "<mensagem>" }`. Em erros de validação (`400`) vem
+também `campos`, com uma mensagem por campo.
+
+### `POST /auth/cadastro`
+
+Cria a conta de um lojista.
+
+```json
+{ "nome": "Maria", "email": "maria@loja.com", "senha": "********" }
+```
+
+| Campo   | Regras                                                                    |
+| ------- | ------------------------------------------------------------------------- |
+| `nome`  | Obrigatório, até 120 caracteres                                           |
+| `email` | Obrigatório, formato válido; salvo em minúsculas e sem espaços nas pontas |
+| `senha` | Obrigatória, de 8 a 72 caracteres; salva só como hash bcrypt              |
+
+| Status | Quando                                                                                                      |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| `201`  | Conta criada. Retorna `{ id, nome, email, criado_em }` (nunca a senha)                                      |
+| `400`  | Validação falhou. Ex.: `{ "erro": "Dados inválidos.", "campos": { "email": "Informe um e-mail válido." } }` |
+| `409`  | E-mail já cadastrado (a comparação ignora maiúsculas e espaços)                                             |
+
+## Testes
+
+Os testes de rotas que usam o banco rodam num banco separado, `<POSTGRES_DB>_test`, criado e
+migrado automaticamente; os dados de desenvolvimento não são tocados. O Postgres precisa estar
+de pé:
+
+```bash
+docker compose up -d db
+cd backend
+npm test
+```
+
 ## Scripts
 
 | Pasta       | Comando                | O que faz                                  |
 | ----------- | ---------------------- | ------------------------------------------ |
 | `backend/`  | `npm run dev`          | Sobe a API com recarga automática          |
 | `backend/`  | `npm start`            | Sobe a API sem recarga                     |
-| `backend/`  | `npm test`             | Roda os testes                             |
+| `backend/`  | `npm test`             | Roda os testes (precisa do banco de pé)    |
 | `backend/`  | `npm run db:migrate`   | Aplica as migrations pendentes             |
 | `backend/`  | `npm run db:rollback`  | Reverte todas as migrations                |
 | `backend/`  | `npm run db:seed`      | Apaga os dados e insere os dados de teste  |

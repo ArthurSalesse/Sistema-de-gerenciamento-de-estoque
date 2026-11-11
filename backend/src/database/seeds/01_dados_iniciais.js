@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs';
+import { hashSenha } from '../../auth/senha.js';
 
 export const USUARIO_TESTE = {
   nome: 'Usuário Teste',
@@ -47,7 +47,7 @@ export async function seed(knex) {
     .insert({
       nome: USUARIO_TESTE.nome,
       email: USUARIO_TESTE.email,
-      senha_hash: await bcrypt.hash(USUARIO_TESTE.senha, 10),
+      senha_hash: await hashSenha(USUARIO_TESTE.senha),
     })
     .returning('id');
 
