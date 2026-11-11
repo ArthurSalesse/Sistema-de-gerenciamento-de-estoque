@@ -222,6 +222,32 @@ O token é assinado (HS256) com `JWT_SECRET`, traz o id do usuário em `sub` e e
 `JWT_EXPIRES_IN` (padrão `8h`). Envie-o nas próximas requisições no cabeçalho
 `Authorization: Bearer <token>`.
 
+### `GET /auth/me` 🔒
+
+Retorna o usuário logado: `{ id, nome, email, criado_em }`.
+
+### Rotas protegidas 🔒
+
+`/auth/me`, `/roupas`, `/vendas` e `/dashboard` (e tudo abaixo delas) exigem o cabeçalho:
+
+```
+Authorization: Bearer <token>
+```
+
+Sem token, com token inválido/adulterado ou expirado, a API responde `401` com o cabeçalho
+`WWW-Authenticate: Bearer` e uma mensagem em `erro` (ex.: `"Sessão expirada. Faça login
+novamente."`). O frontend pode tratar qualquer `401` mandando o usuário para o login.
+
+Para novas rotas, o middleware `autenticar` (`src/middlewares/autenticar.js`) deixa o usuário em
+`req.usuario.id`. **Toda consulta deve filtrar por esse id**, para cada lojista ver só os
+próprios dados:
+
+```js
+const roupas = await db('roupas').where({ usuario_id: req.usuario.id, excluido_em: null });
+```
+
+Rotas que não existem respondem `404` com `{ "erro": "Rota não encontrada." }`.
+
 ## Testes
 
 Os testes de rotas que usam o banco rodam num banco separado, `<POSTGRES_DB>_test`, criado e

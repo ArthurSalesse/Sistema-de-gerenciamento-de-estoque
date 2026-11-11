@@ -29,6 +29,11 @@ export function createAuthService({ db }) {
       }
     },
 
+    /** Dados públicos do usuário, ou undefined se não existir. */
+    buscarPorId(id) {
+      return db('usuarios').where({ id }).first(CAMPOS_PUBLICOS);
+    },
+
     /** Confere as credenciais e devolve { token, usuario }. Espera dados de validarLogin. */
     async login({ email, senha }) {
       const usuario = await db('usuarios')

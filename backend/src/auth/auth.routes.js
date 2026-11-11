@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { ValidacaoError } from '../errors.js';
+import { HttpError, ValidacaoError } from '../errors.js';
+import { autenticar } from '../middlewares/autenticar.js';
 import { createAuthService } from './auth.service.js';
 import { validarCadastro, validarLogin } from './validacao.js';
 
@@ -20,6 +21,13 @@ export function createAuthRouter({ db }) {
     if (erros) throw new ValidacaoError(erros);
 
     res.json(await authService.login(dados));
+  });
+
+  router.get('/me', autenticar, async (req, res) => {
+    const usuario = await authService.buscarPorId(req.usuario.id);
+    // Token válido, mas a conta não existe mais
+    if (!usuario) throw new HttpError(401, 'Usuário não encontrado. Faça login novamente.');
+    res.json(usuario);
   });
 
   return router;

@@ -3,7 +3,12 @@ import cors from 'cors';
 import { createAuthRouter } from './auth/auth.routes.js';
 import { db as dbPadrao } from './database/connection.js';
 import { HttpError } from './errors.js';
+import { autenticar } from './middlewares/autenticar.js';
 import { ROTA_UPLOADS, storage as storagePadrao } from './storage/index.js';
+
+// Só usuários logados acessam. Os routers dessas áreas entram depois desta linha
+// em createApp e devem sempre filtrar os dados por req.usuario.id.
+export const ROTAS_PROTEGIDAS = ['/roupas', '/vendas', '/dashboard'];
 
 export function createApp({ storage = storagePadrao, db = dbPadrao } = {}) {
   const app = express();
@@ -30,6 +35,12 @@ export function createApp({ storage = storagePadrao, db = dbPadrao } = {}) {
   });
 
   app.use('/auth', createAuthRouter({ db }));
+
+  app.use(ROTAS_PROTEGIDAS, autenticar);
+
+  app.use((req, res) => {
+    res.status(404).json({ erro: 'Rota não encontrada.' });
+  });
 
   app.use((erro, req, res, next) => {
     if (erro instanceof HttpError) {
