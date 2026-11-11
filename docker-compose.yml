@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:17-alpine
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # Dentro da rede do Docker o banco é acessado pelo nome do serviço
+      DB_HOST: db
+      DB_PORT: 5432
+    # Aplica as migrations pendentes e sobe a API.
+    # O exec troca o shell pelo Node, para os sinais de parada chegarem ao processo.
+    command:
+      ['sh', '-c', './node_modules/.bin/knex migrate:latest && exec node --watch src/server.js']
+    init: true
+    restart: unless-stopped
+    ports:
+      - '${BACKEND_PORT:-3000}:${BACKEND_PORT:-3000}'
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:${BACKEND_PORT:-3000}/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    init: true
+    restart: unless-stopped
+    ports:
+      - '${FRONTEND_PORT:-5173}:${FRONTEND_PORT:-5173}'
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
